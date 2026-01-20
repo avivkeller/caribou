@@ -1,6 +1,6 @@
 {
   "name": "cariboujs",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A collection of Antlr grammars",
   "repository": {
     "type": "git",
@@ -10,16 +10,19 @@
     "caribou",
     "antlr"
   ],
+  "files": [
+    "**/*.js"
+  ],
   "author": "Aviv Keller <me@aviv.sh>",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/avivkeller/caribou/issues"
   },
   "homepage": "https://github.com/avivkeller/caribou#readme",
-  "devDependencies": {
-    "rolldown": "^1.0.0-beta.60"
-  },
   "dependencies": {
     "antlr4": "^4.13.2"
+  },
+  "devDependencies": {
+    "fast-xml-parser": "^5.3.3"
   }
 }
