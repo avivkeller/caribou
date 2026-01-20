@@ -68,5 +68,8 @@ jobs:
           cp package.json dist/package.json
 
           # Push changes back to the repository
+          cd dist
           npm publish --provenance
+          cd ..
+          
           git push
