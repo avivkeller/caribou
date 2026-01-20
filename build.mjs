@@ -23,7 +23,7 @@ const exec = (cmd, args, opts = {}) =>
     proc.on("close", (code) =>
       code === 0
         ? resolve()
-        : reject(new Error(`${cmd} exited with code ${code}`))
+        : reject(new Error(`${cmd} exited with code ${code}`)),
     );
     proc.on("error", reject);
   });
@@ -31,7 +31,7 @@ const exec = (cmd, args, opts = {}) =>
 const exists = (p) =>
   fs.access(p).then(
     () => true,
-    () => false
+    () => false,
   );
 
 const download = (url, dest) =>
@@ -76,7 +76,7 @@ async function setupDependencies() {
     console.log("Downloading ANTLR...");
     await download(
       "https://www.antlr.org/download/antlr-4.13.2-complete.jar",
-      ANTLR_JAR
+      ANTLR_JAR,
     );
   }
 
@@ -105,7 +105,7 @@ async function processGrammar({ name, paths, base }) {
   fs.mkdir(outputDir, { recursive: true });
 
   const existResults = await Promise.all(
-    pathStrings.map((p) => exists(path.join(GRAMMARS_REPO_DIR, p)))
+    pathStrings.map((p) => exists(path.join(GRAMMARS_REPO_DIR, p))),
   );
 
   if (existResults.some((e) => !e)) {
@@ -126,7 +126,7 @@ async function processGrammar({ name, paths, base }) {
       "-o",
       outputDir,
     ],
-    { cwd }
+    { cwd },
   );
 }
 
@@ -145,14 +145,14 @@ async function generateReadme(grammars) {
         ...(await Promise.all(
           grammars.map(async ({ name, base }) => {
             const generatedFiles = await fs.readdir(
-              path.join(OUTPUT_DIR, base)
+              path.join(OUTPUT_DIR, base),
             );
 
             const lexer = generatedFiles.find((p) => p.endsWith("Lexer.js"));
             const parser = generatedFiles.find((p) => p.endsWith("Parser.js"));
             const visitor = generatedFiles.find((p) => p.endsWith("Vistor.js"));
             const listener = generatedFiles.find((p) =>
-              p.endsWith("Listener.js")
+              p.endsWith("Listener.js"),
             );
 
             return `|${[
@@ -163,10 +163,10 @@ async function generateReadme(grammars) {
               visitor ? `\`${visitor}\`` : "",
               listener ? `\`${listener}\`` : "",
             ].join(" | ")}|`;
-          })
+          }),
         )),
-      ].join("\n")
-    )
+      ].join("\n"),
+    ),
   );
 }
 
@@ -174,7 +174,7 @@ async function loadGrammars() {
   await setupDependencies();
 
   const grammarsJson = JSON.parse(
-    await fs.readFile(path.join(GRAMMARS_REPO_DIR, "grammars.json"), "utf8")
+    await fs.readFile(path.join(GRAMMARS_REPO_DIR, "grammars.json"), "utf8"),
   );
 
   const grammars = grammarsJson.map(({ lexer, parser, name }) => {
@@ -202,7 +202,7 @@ async function loadGrammars() {
       const targets = desc.targets?.split(";") ?? [];
 
       return targets.includes("JavaScript") ? grammar : null;
-    })
+    }),
   );
 
   return results.filter(Boolean);
@@ -217,9 +217,9 @@ for (const grammar of grammars) await processGrammar(grammar);
 await Promise.all([
   fs.cp(
     path.join(__dirname, "package.json"),
-    path.join(OUTPUT_DIR, "package.json")
+    path.join(OUTPUT_DIR, "package.json"),
   ),
   generateReadme(grammars).then(() =>
-    fs.cp(README_OUTPUT, path.join(OUTPUT_DIR, "README.md"))
+    fs.cp(README_OUTPUT, path.join(OUTPUT_DIR, "README.md")),
   ),
 ]);
