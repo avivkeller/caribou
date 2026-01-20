@@ -136,7 +136,7 @@ async function processGrammar({ name, parser, lexer }) {
         cwd: generatedDir,
       }),
     )
-  ).map((f) => path.join(cwd, f));
+  ).map((f) => path.join(generatedDir, f));
 
   // Bundle each type in parallel
   await Promise.all(
