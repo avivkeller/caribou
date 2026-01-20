@@ -1,0 +1,71 @@
+name: Compare Mapping and Bump Version
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run once a month at midnight on the first day
+    - cron: "0 0 1 * *"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  compare-and-bump:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
+        with:
+          node-version: lts/*
+          cache: npm
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: node build.mjs
+
+      - name: Compare with npm package
+        id: compare
+        run: |
+          # Create temp directory and set paths
+          TMP_DIR=$(mktemp -d)
+
+          # Fetch package from npm
+          PACKAGE_URL=$(npm view cariboujs dist.tarball)
+          curl -sL "$PACKAGE_URL" -o "$TMP_DIR/package.tgz"
+          tar -xzf "$TMP_DIR/package.tgz" -C "$TMP_DIR"
+
+          # Compare files
+          # The npm tarball extracts to a 'package' directory
+          # Compare the dist folder with the package's dist folder
+          if diff -rq dist "$TMP_DIR/package" > /dev/null 2>&1; then
+            echo "No changes detected in dist folder"
+            echo "result=same" >> "$GITHUB_OUTPUT"
+          else
+            echo "Changes detected in dist folder"
+            echo "result=different" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump patch version
+        if: steps.compare.outputs.result == 'different'
+        run: |
+          # Configure Git
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          # Get current version and bump patch
+          npm version patch -m "Bump version to %s"
+          npm publish --provenance
+
+          git add README.md
+          git commit -m "Update README with new langs"
+
+          # Push changes back to the repository
+          git push
