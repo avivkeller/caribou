@@ -15,6 +15,11 @@ const ANTLR_URL = "https://www.antlr.org/download/antlr-4.13.2-complete.jar";
 const README_TEMPLATE = path.join(__dirname, "README.tmd");
 const README_OUTPUT = path.join(__dirname, "README.md");
 
+const toCaseSensitive = async (filePath) => {
+  const matches = await fs.glob(filePath, { nocase: true });
+  return matches[0] || filePath;
+};
+
 const exec = (cmd, args, opts = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { stdio: "inherit", ...opts });
@@ -137,7 +142,7 @@ async function processGrammar({ name, lexer, parser }) {
   for (const type of types) {
     const input = path.join(cwd, `${name}${type}.js`);
     await rolldown.build({
-      input,
+      input: await toCaseSensitive(input),
       output: {
         file: path.join(outputDir, `${type.toLowerCase()}.js`),
         format: "esm",
