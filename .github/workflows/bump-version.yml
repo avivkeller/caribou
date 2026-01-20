@@ -29,7 +29,7 @@ jobs:
         run: npm ci
 
       - name: Build project
-        run: node build.mjs
+        run: node build.mjs dist
 
       - name: Compare with npm package
         id: compare

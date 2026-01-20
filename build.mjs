@@ -212,7 +212,7 @@ const mode = process.argv[2];
 const commands = { dist, readme };
 
 if (!commands[mode]) {
-  console.error("Usage: ./buildmjs <dist|readme>");
+  console.error("Usage: ./build.mjs <dist|readme>");
   process.exit(1);
 }
 
