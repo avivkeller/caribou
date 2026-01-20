@@ -150,7 +150,7 @@ async function generateReadme(grammars) {
 
             const lexer = generatedFiles.find((p) => p.endsWith("Lexer.js"));
             const parser = generatedFiles.find((p) => p.endsWith("Parser.js"));
-            const visitor = generatedFiles.find((p) => p.endsWith("Vistor.js"));
+            const visitor = generatedFiles.find((p) => p.endsWith("Visitor.js"));
             const listener = generatedFiles.find((p) =>
               p.endsWith("Listener.js"),
             );
