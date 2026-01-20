@@ -15,10 +15,21 @@ const ANTLR_URL = "https://www.antlr.org/download/antlr-4.13.2-complete.jar";
 const README_TEMPLATE = path.join(__dirname, "README.tmd");
 const README_OUTPUT = path.join(__dirname, "README.md");
 
-const toCaseSensitive = async (filePath) => {
-  const matches = await fs.glob(filePath, { nocase: true });
-  return matches[0] || filePath;
-};
+const caseMap = new Map();
+
+const getCaseMap = async () => {
+  if (caseMap.size > 0) {
+    return caseMap;
+  }
+
+  for await (const file of fs.glob(path.join(GRAMMARS_REPO_DIR, '**/*.js'))) {
+    caseMap.set(file.toLowerCase(), file);
+  }
+
+  return caseMap;
+}
+
+const toCaseSensitive = async (path) => (await getCaseMap()).get(path.toLowerCase());
 
 const exec = (cmd, args, opts = {}) =>
   new Promise((resolve, reject) => {
@@ -141,6 +152,7 @@ async function processGrammar({ name, lexer, parser }) {
   // Bundle each type
   for (const type of types) {
     const input = path.join(cwd, `${name}${type}.js`);
+
     await rolldown.build({
       input: await toCaseSensitive(input),
       output: {
