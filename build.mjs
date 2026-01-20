@@ -15,22 +15,6 @@ const ANTLR_URL = "https://www.antlr.org/download/antlr-4.13.2-complete.jar";
 const README_TEMPLATE = path.join(__dirname, "README.tmd");
 const README_OUTPUT = path.join(__dirname, "README.md");
 
-const caseMap = new Map();
-
-const getCaseMap = async () => {
-  if (caseMap.size > 0) {
-    return caseMap;
-  }
-
-  for await (const file of fs.glob(path.join(GRAMMARS_REPO_DIR, '**/*.js'))) {
-    caseMap.set(file.toLowerCase(), file);
-  }
-
-  return caseMap;
-}
-
-const toCaseSensitive = async (path) => (await getCaseMap()).get(path.toLowerCase());
-
 const exec = (cmd, args, opts = {}) =>
   new Promise((resolve, reject) => {
     const proc = spawn(cmd, args, { stdio: "inherit", ...opts });
@@ -100,30 +84,19 @@ async function setupDependencies() {
   }
 }
 
-async function processGrammar({ name, lexer, parser }) {
+async function processGrammar({ name, parser, lexer }) {
   console.log(`Building ${name}...`);
 
-  const lexerPath = lexer ? extractPath(lexer) : null;
-  const parserPath = parser ? extractPath(parser) : null;
-  const cwd = path.join(
-    GRAMMARS_REPO_DIR,
-    path.dirname(lexerPath || parserPath),
-  );
-  const outputDir = path.join(
-    OUTPUT_DIR,
-    path.dirname(parserPath || lexerPath),
-  );
+  const paths = {};
 
-  const files = [];
-  const types = [];
-  if (lexerPath) {
-    files.push(path.join(GRAMMARS_REPO_DIR, lexerPath));
-    types.push("Lexer");
-  }
-  if (parserPath) {
-    files.push(path.join(GRAMMARS_REPO_DIR, parserPath));
-    types.push("Parser");
-  }
+  if (lexer) paths.lexer = extractPath(lexer);
+  if (parser) paths.parser = extractPath(parser);
+
+  const base = path.dirname(paths.lexer || paths.parser);
+
+  const cwd = path.join(GRAMMARS_REPO_DIR, base);
+
+  const outputDir = path.join(OUTPUT_DIR, base);
 
   await fs.mkdir(outputDir, { recursive: true });
 
@@ -136,7 +109,7 @@ async function processGrammar({ name, lexer, parser }) {
       ANTLR_JAR,
       "org.antlr.v4.Tool",
       "-Dlanguage=JavaScript",
-      ...files.map((f) => path.relative(cwd, f)),
+      ...Object.values(paths).map((f) => path.relative(base, f)),
     ],
     { cwd },
   );
@@ -150,11 +123,11 @@ async function processGrammar({ name, lexer, parser }) {
   }
 
   // Bundle each type
-  for (const type of types) {
-    const input = path.join(cwd, `${name}${type}.js`);
+  for (const type of Object.keys(paths)) {
+    const input = await fs.glob(`*${type}.js`, { cwd }).next();
 
     await rolldown.build({
-      input: await toCaseSensitive(input),
+      input: path.join(cwd, input.value),
       output: {
         file: path.join(outputDir, `${type.toLowerCase()}.js`),
         format: "esm",
@@ -181,7 +154,7 @@ function generateTable(grammars) {
 }
 
 async function generateReadme(grammars) {
-  console.log("📝 Generating README.md...");
+  console.log("Generating README.md...");
   const template = await fs.readFile(README_TEMPLATE, "utf8");
   const content = template.replace(
     "<!-- INSERT_LANGS_HERE -->",
