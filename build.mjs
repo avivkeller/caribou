@@ -32,6 +32,8 @@ const exists = (p) =>
     () => false,
   );
 
+const toArray = (x) => (Array.isArray(x) ? x : [x]);
+
 const download = (url, dest) =>
   new Promise((resolve, reject) => {
     const request = (targetUrl) => {
@@ -87,22 +89,13 @@ async function setupDependencies() {
   }
 }
 
-async function processGrammar({ name, base }) {
+async function processGrammar({ name, base, files }) {
   console.log(`Building ${name}...`);
 
   const cwd = path.join(GRAMMARS_REPO_DIR, base);
   const outputDir = path.join(OUTPUT_DIR, base);
 
   await fs.mkdir(outputDir, { recursive: true });
-
-  // Find all .g4 files in the grammar directory
-  const files = await fs.readdir(cwd);
-  const g4Files = files.filter((f) => f.endsWith(".g4"));
-
-  if (g4Files.length === 0) {
-    console.warn(`Skipping ${name}: no .g4 files found`);
-    return;
-  }
 
   await exec(
     "java",
@@ -113,7 +106,7 @@ async function processGrammar({ name, base }) {
       "org.antlr.v4.Tool",
       "-Dlanguage=JavaScript",
       "-visitor",
-      ...g4Files,
+      ...files,
       "-o",
       outputDir,
     ],
@@ -192,22 +185,28 @@ async function loadGrammars() {
       const targets = desc.targets?.split(";") ?? [];
 
       // Skip if JavaScript is not a target
-      if (!targets.includes("JavaScript")) {
+      if (!targets.includes("JavaScript") || !(await exists(pomFile))) {
         return null;
       }
 
-      // Read and parse pom.xml for the grammar name
-      let name = path.basename(base); // Default to directory name
+      const pomContent = await fs.readFile(pomFile);
+      const { project } = xmlParser.parse(pomContent);
+      const plugins =
+        project.build.pluginManagement?.plugins.plugin ||
+        project.build.plugins.plugin;
 
-      if (await exists(pomFile)) {
-        const pomContent = await fs.readFile(pomFile);
-        const pom = xmlParser.parse(pomContent);
-        if (pom.project?.name) {
-          name = pom.project.name;
-        }
-      }
+      const plugin = plugins.find((plugin) => plugin.groupId === "org.antlr");
 
-      return { name, base };
+      const grammars =
+        plugin.configuration.grammars ||
+        plugin.configuration.includes?.include ||
+        `${project.artifactId}.g4`;
+
+      return {
+        name: project.name,
+        base,
+        files: toArray(grammars),
+      };
     }),
   );
 
