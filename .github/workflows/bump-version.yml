@@ -32,7 +32,6 @@ jobs:
         run: node build.mjs dist
 
       - name: Compare with npm package
-        id: compare
         run: |
           # Create temp directory and set paths
           TMP_DIR=$(mktemp -d)
@@ -42,26 +41,11 @@ jobs:
           curl -sL "$PACKAGE_URL" -o "$TMP_DIR/package.tgz"
           tar -xzf "$TMP_DIR/package.tgz" -C "$TMP_DIR"
 
-          # Compare files
-          # The npm tarball extracts to a 'package' directory
-          # Compare the dist folder with the package's dist folder
-          if diff -rq dist "$TMP_DIR/package" > /dev/null 2>&1; then
-            echo "No changes detected in dist folder"
-            echo "result=same" >> "$GITHUB_OUTPUT"
-          else
-            echo "Changes detected in dist folder"
-            echo "result=different" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Bump patch version
-        if: steps.compare.outputs.result == 'different'
         run: |
           # Configure Git
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-
-          git add .
-          git commit -m "Update README with new langs"
 
           # Get current version and bump patch
           npm version patch -m "Bump version to %s"
