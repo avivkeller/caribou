@@ -31,16 +31,6 @@ jobs:
       - name: Build project
         run: node build.mjs dist
 
-      - name: Compare with npm package
-        run: |
-          # Create temp directory and set paths
-          TMP_DIR=$(mktemp -d)
-
-          # Fetch package from npm
-          PACKAGE_URL=$(npm view cariboujs dist.tarball)
-          curl -sL "$PACKAGE_URL" -o "$TMP_DIR/package.tgz"
-          tar -xzf "$TMP_DIR/package.tgz" -C "$TMP_DIR"
-
       - name: Bump patch version
         run: |
           # Configure Git
