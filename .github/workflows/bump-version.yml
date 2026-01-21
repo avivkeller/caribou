@@ -71,5 +71,5 @@ jobs:
           cd dist
           npm publish --provenance
           cd ..
-          
+
           git push

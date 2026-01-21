@@ -12,8 +12,6 @@ const ANTLR_JAR = path.join(BUILD_DIR, "antlr.jar");
 const GRAMMARS_REPO_DIR = path.join(BUILD_DIR, "grammars-v4");
 const README_TEMPLATE = path.join(__dirname, "README.tmd");
 const README_OUTPUT = path.join(__dirname, "README.md");
-const GITHUB_RAW_REGEX =
-  /raw\.githubusercontent\.com\/[^/]+\/[^/]+\/(?:main|master)\/(.+)/;
 
 const xmlParser = new XMLParser();
 
@@ -55,12 +53,6 @@ const download = (url, dest) =>
     request(url);
   });
 
-const extractPath = (url) => {
-  const match = url?.match(GITHUB_RAW_REGEX);
-  if (!match) throw new Error(`Invalid URL: ${url}`);
-  return match[1];
-};
-
 async function setupDependencies() {
   await Promise.all([
     fs.mkdir(BUILD_DIR, { recursive: true }),
@@ -95,21 +87,20 @@ async function setupDependencies() {
   }
 }
 
-async function processGrammar({ name, paths, base }) {
+async function processGrammar({ name, base }) {
   console.log(`Building ${name}...`);
 
   const cwd = path.join(GRAMMARS_REPO_DIR, base);
   const outputDir = path.join(OUTPUT_DIR, base);
-  const pathStrings = Object.values(paths);
 
-  fs.mkdir(outputDir, { recursive: true });
+  await fs.mkdir(outputDir, { recursive: true });
 
-  const existResults = await Promise.all(
-    pathStrings.map((p) => exists(path.join(GRAMMARS_REPO_DIR, p))),
-  );
+  // Find all .g4 files in the grammar directory
+  const files = await fs.readdir(cwd);
+  const g4Files = files.filter((f) => f.endsWith(".g4"));
 
-  if (existResults.some((e) => !e)) {
-    console.warn(`Skipping invalid grammar:  ${name}`);
+  if (g4Files.length === 0) {
+    console.warn(`Skipping ${name}: no .g4 files found`);
     return;
   }
 
@@ -122,12 +113,20 @@ async function processGrammar({ name, paths, base }) {
       "org.antlr.v4.Tool",
       "-Dlanguage=JavaScript",
       "-visitor",
-      ...pathStrings.map((f) => path.relative(base, f)),
+      ...g4Files,
       "-o",
       outputDir,
     ],
     { cwd },
   );
+
+  // Copy JavaScript files, if they exist
+  const jsFilesDir = path.join(cwd, "JavaScript");
+  if (await exists(jsFilesDir)) {
+    await fs.cp(jsFilesDir, outputDir, {
+      recursive: true,
+    });
+  }
 }
 
 async function generateReadme(grammars) {
@@ -150,7 +149,9 @@ async function generateReadme(grammars) {
 
             const lexer = generatedFiles.find((p) => p.endsWith("Lexer.js"));
             const parser = generatedFiles.find((p) => p.endsWith("Parser.js"));
-            const visitor = generatedFiles.find((p) => p.endsWith("Visitor.js"));
+            const visitor = generatedFiles.find((p) =>
+              p.endsWith("Visitor.js"),
+            );
             const listener = generatedFiles.find((p) =>
               p.endsWith("Listener.js"),
             );
@@ -173,39 +174,44 @@ async function generateReadme(grammars) {
 async function loadGrammars() {
   await setupDependencies();
 
-  const grammarsJson = JSON.parse(
-    await fs.readFile(path.join(GRAMMARS_REPO_DIR, "grammars.json"), "utf8"),
+  // Find all directories containing desc.xml
+  const descFiles = await Array.fromAsync(
+    fs.glob("**/desc.xml", { cwd: GRAMMARS_REPO_DIR }),
   );
 
-  const grammars = grammarsJson.map(({ lexer, parser, name }) => {
-    const paths = {
-      ...(lexer && { Lexer: extractPath(lexer) }),
-      ...(parser && { Parser: extractPath(parser) }),
-    };
+  const grammars = await Promise.all(
+    descFiles.toSorted().map(async (file) => {
+      const base = path.dirname(file);
 
-    return {
-      name,
-      base: path.dirname(Object.values(paths)[0]),
-      paths,
-    };
-  });
+      const descFile = path.join(GRAMMARS_REPO_DIR, base, "desc.xml");
+      const pomFile = path.join(GRAMMARS_REPO_DIR, base, "pom.xml");
 
-  const results = await Promise.all(
-    grammars.map(async (grammar) => {
-      const metaFile = path.join(GRAMMARS_REPO_DIR, grammar.base, "desc.xml");
-
-      if (!(await exists(metaFile))) return null;
-
-      const content = await fs.readFile(metaFile);
-      const { desc } = xmlParser.parse(content);
-
+      // Read and parse desc.xml
+      const descContent = await fs.readFile(descFile);
+      const { desc } = xmlParser.parse(descContent);
       const targets = desc.targets?.split(";") ?? [];
 
-      return targets.includes("JavaScript") ? grammar : null;
+      // Skip if JavaScript is not a target
+      if (!targets.includes("JavaScript")) {
+        return null;
+      }
+
+      // Read and parse pom.xml for the grammar name
+      let name = path.basename(base); // Default to directory name
+
+      if (await exists(pomFile)) {
+        const pomContent = await fs.readFile(pomFile);
+        const pom = xmlParser.parse(pomContent);
+        if (pom.project?.name) {
+          name = pom.project.name;
+        }
+      }
+
+      return { name, base };
     }),
   );
 
-  return results.filter(Boolean);
+  return grammars.filter(Boolean);
 }
 
 // Main execution
