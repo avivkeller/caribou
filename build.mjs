@@ -10,7 +10,7 @@ const OUTPUT_DIR = path.join(__dirname, "dist");
 const BUILD_DIR = path.join(__dirname, ".build");
 const ANTLR_JAR = path.join(BUILD_DIR, "antlr.jar");
 const GRAMMARS_REPO_DIR = path.join(BUILD_DIR, "grammars-v4");
-const README_TEMPLATE = path.join(__dirname, "README.tmd");
+const README_TEMPLATE = path.join(__dirname, "README.md");
 const README_OUTPUT = path.join(OUTPUT_DIR, "README.md");
 
 const xmlParser = new XMLParser();
