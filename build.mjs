@@ -149,14 +149,14 @@ async function generateReadme(grammars) {
               p.endsWith("Listener.js"),
             );
 
-            return `|${[
+            return `| ${[
               name, // Language
               `\`${base}\``, // Path
               lexer ? `\`${lexer}\`` : "",
               parser ? `\`${parser}\`` : "",
               visitor ? `\`${visitor}\`` : "",
               listener ? `\`${listener}\`` : "",
-            ].join(" | ")}|`;
+            ].join(" | ")}| `;
           }),
         )),
       ].join("\n"),
@@ -219,10 +219,4 @@ console.log(`Processing ${grammars.length} grammars...`);
 
 for (const grammar of grammars) await processGrammar(grammar);
 
-await Promise.all([
-  fs.cp(
-    path.join(__dirname, "package.json"),
-    path.join(OUTPUT_DIR, "package.json"),
-  ),
-  generateReadme(grammars),
-]);
+await generateReadme(grammars);
